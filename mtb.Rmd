@@ -4,15 +4,12 @@ output: html_document
 date: "2022-11-02"
 editor_options: 
   chunk_output_type: console
+bibliography: references.bib
 ---
 
 ```{r}
 library(tidyverse)
-library(BiocManager)
-BiocManager::install("ReportingTools")
-
 ```
-
 
 ```{r}
 df <- NULL
@@ -34,13 +31,19 @@ df %>% mutate(threshold = pval < 0.05) |>
               axis.title = element_text(size = rel(1.25)))
 
 df |> slice_min(pval, n = 100)
+```
 
+Use the Bioconductor package ReportingTools for displaying the results [@Huntley2013]. Excerpt from @Love2015 about ReportingTools:
+
+> ReportingTools will automatically generate dynamic HTML documents, including links to external databases using gene identifiers and boxplots summarizing the normalized counts across groups.
+
+```{r}
+library(BiocManager)
+# BiocManager::install("ReportingTools")
 library("ReportingTools")
 htmlRep <- HTMLReport(shortName="report", title="My report",
                       reportDirectory="./report")
 publish(df |> slice_min(pval, n = 100), htmlRep)
 url <- finish(htmlRep)
 browseURL(url)
-
 ```
-
