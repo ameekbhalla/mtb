@@ -1,0 +1,46 @@
+---
+title: "Untitled"
+output: html_document
+date: "2022-11-02"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(tidyverse)
+library(BiocManager)
+BiocManager::install("ReportingTools")
+
+```
+
+
+```{r}
+df <- NULL
+df$fc <- logFCs$`wt___uninf___T0 -- vs -- NLRP3___uninf___T0`
+df$pval <- pValues$`wt___uninf___T0 -- vs -- NLRP3___uninf___T0`
+
+df <- df |> as.data.frame()
+
+df %>% mutate(threshold = pval < 0.05) |> 
+  ggplot() + 
+        geom_point(aes(x = fc, y = -log10(pval), color = threshold)) + 
+        xlab("log2 fold change") + 
+        ylab("-log10 adjusted p-value") + 
+  ggtitle("wt___uninf___T0 -- vs -- NLRP3___uninf___T0") +
+  # ylim(0, 5) + 
+  theme_minimal() +
+        theme(legend.position = "none", 
+              plot.title = element_text(size = rel(1.5), hjust = 0.5), 
+              axis.title = element_text(size = rel(1.25)))
+
+df |> slice_min(pval, n = 100)
+
+library("ReportingTools")
+htmlRep <- HTMLReport(shortName="report", title="My report",
+                      reportDirectory="./report")
+publish(df |> slice_min(pval, n = 100), htmlRep)
+url <- finish(htmlRep)
+browseURL(url)
+
+```
+
