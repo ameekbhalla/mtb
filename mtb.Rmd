@@ -7,30 +7,177 @@ editor_options:
 bibliography: references.bib
 ---
 
-```{r}
-library(tidyverse)
+```{r setup, include = FALSE}
+pacman::p_load(tidyverse, tximport, biomaRt, DESeq2)
 ```
 
-```{r}
-df <- NULL
-df$fc <- logFCs$`wt___uninf___T0 -- vs -- NLRP3___uninf___T0`
-df$pval <- pValues$`wt___uninf___T0 -- vs -- NLRP3___uninf___T0`
+```{r cliff}
+# prep metadata -----------------------------------------------------------
 
-df <- df |> as.data.frame()
+metadata = data.frame(names = list.dirs("./data/kallisto",full.names = F),
+                      files = list.dirs("./data/kallisto",full.names = T))[-1,]
+metadata$files = paste0(metadata$files,"/abundance.h5")
+metadata$time = gsub(".*_(T.*?)_.*","\\1",metadata$names)
+metadata$background = gsub(".*?_(.*?)_.*","\\1",metadata$names)
+metadata$treatment = gsub(".*_T.*?_(.*?)_.*","\\1",metadata$names)
+metadata$treatment[metadata$time=="T0"] = "uninf"
+metadata$group = paste0(metadata$background, "___",metadata$treatment, "___", metadata$time)
+rownames(metadata) = metadata$names
 
-df %>% mutate(threshold = pval < 0.05) |> 
-  ggplot() + 
-        geom_point(aes(x = fc, y = -log10(pval), color = threshold)) + 
-        xlab("log2 fold change") + 
-        ylab("-log10 adjusted p-value") + 
-  ggtitle("wt___uninf___T0 -- vs -- NLRP3___uninf___T0") +
-  # ylim(0, 5) + 
-  theme_minimal() +
-        theme(legend.position = "none", 
-              plot.title = element_text(size = rel(1.5), hjust = 0.5), 
-              axis.title = element_text(size = rel(1.25)))
+# import data -------------------------------------------------------------
+files = metadata$files
+names(files) = metadata$names
+tx = tximport::tximport(files, type = "kallisto", txOut = TRUE)
 
-df |> slice_min(pval, n = 100)
+
+# Build reference mapping -------------------------------------------------
+mart = useEnsembl(biomart = "ensembl",
+               dataset = "mmusculus_gene_ensembl",
+               mirror = "useast")
+
+t2g = getBM(attributes = c("refseq_mrna", "external_gene_name"),mart = mart)
+t2g = dplyr::rename(t2g, 
+                    target_id = refseq_mrna,
+                    gene_id = external_gene_name)
+t2g = t2g[t2g$target_id!="",]
+t2g = t2g[match(gsub("\\..*","",rownames(tx$abundance)),t2g$target_id),]
+t2g$target_id = rownames(tx$abundance)
+t2g = t2g[!is.na(t2g$gene_id),]
+
+gene = summarizeToGene(tx,tx2gene = t2g)
+gene_lengthScaledTPM = summarizeToGene(tx,tx2gene = t2g, countsFromAbundance = "lengthScaledTPM")
+```
+
+```{r metadata}
+metadata <- tibble::tribble(
+                 ~name, ~background, ~time, ~treatment, ~replicate,
+            "01_wt_T0_1",      "wt",  "T0",    "uninf",         "1",
+            "02_wt_T0_2",      "wt",  "T0",    "uninf",         "2",
+            "03_wt_T0_3",      "wt",  "T0",    "uninf",         "3",
+         "04_NLRP3_T0_1",   "NLRP3",  "T0",    "uninf",         "1",
+         "05_NLRP3_T0_2",   "NLRP3",  "T0",    "uninf",         "2",
+         "06_NLRP3_T0_3",   "NLRP3",  "T0",    "uninf",         "3",
+          "07_MAVS_T0_1",    "MAVS",  "T0",    "uninf",         "1",
+          "08_MAVS_T0_2",    "MAVS",  "T0",    "uninf",         "2",
+          "09_MAVS_T0_3",    "MAVS",  "T0",    "uninf",         "3",
+       "10_wt_T24_inf_1",      "wt", "T24",      "inf",         "1",
+       "11_wt_T24_inf_2",      "wt", "T24",      "inf",         "2",
+       "12_wt_T24_inf_3",      "wt", "T24",      "inf",         "3",
+     "13_wt_T24_uninf_1",      "wt", "T24",    "uninf",         "1",
+     "14_wt_T24_uninf_2",      "wt", "T24",    "uninf",         "2",
+     "15_wt_T24_uninf_3",      "wt", "T24",    "uninf",         "3",
+    "16_NLRP3_T24_inf_1",   "NLRP3", "T24",      "inf",         "1",
+    "17_NLRP3_T24_inf_2",   "NLRP3", "T24",      "inf",         "2",
+    "18_NLRP3_T24_inf_3",   "NLRP3", "T24",      "inf",         "3",
+  "19_NLRP3_T24_uninf_1",   "NLRP3", "T24",    "uninf",         "1",
+  "20_NLRP3_T24_uninf_2",   "NLRP3", "T24",    "uninf",         "2",
+  "21_NLRP3_T24_uninf_3",   "NLRP3", "T24",    "uninf",         "3",
+     "22_MAVS_T24_inf_1",    "MAVS", "T24",      "inf",         "1",
+     "23_MAVS_T24_inf_2",    "MAVS", "T24",      "inf",         "2",
+     "24_MAVS_T24_inf_3",    "MAVS", "T24",      "inf",         "3",
+   "25_MAVS_T24_uninf_1",    "MAVS", "T24",    "uninf",         "1",
+   "26_MAVS_T24_uninf_2",    "MAVS", "T24",    "uninf",         "2",
+   "27_MAVS_T24_uninf_3",    "MAVS", "T24",    "uninf",         "3"
+  ) 
+
+# creating treatment2 from a linear combination of time and treatment
+metadata <- metadata |>
+mutate(time_treat = case_when(time == "T24" & treatment == "uninf" ~ "uninf",
+                              time == "T24" & treatment ==   "inf" ~   "inf",
+                              time ==  "T0" & treatment == "uninf" ~ "baseline"),
+       back_treat =  paste0(background, "_", treatment)
+       )
+
+metadata <- metadata |>
+  column_to_rownames("name") |>
+  mutate(background = background |> as.factor() |> relevel(ref = "wt"),
+         time = time |> as.factor() |> relevel(ref = "T0"),
+         treatment = treatment |> as.factor() |> relevel(ref = "uninf"),
+         time_treat = time_treat |> as.factor() |> relevel(ref = "baseline"),
+         back_treat = back_treat |> as.factor() |> relevel(ref = "wt_uninf")
+         ) |> 
+  dplyr::select(background, time, treatment, time_treat, back_treat, replicate)
+```
+
+## what is the effect of including an extra term in the model
+
+-   an extra additive term in the model changes the underlying test from an unpaired t-test to a paired t-test.
+-   it does not change the slope estimate (beta), it only changes its SE, and hence the t- & p-value
+-   Quote from [@Sainani2010] explaining why the SE changes, "... the paired t-test only has to account for one source of variability (variability within pairs) rather than 2 sources (variability from two groups of twins)."
+-   The unpaired t-test uses the third formula but the paired t-test uses the fourth formula of the [five formulas given here](https://miroslavtushev.medium.com/a-simple-trick-to-understand-the-t-test-2c2a9e7f1dc5)
+-   Restated in terms of the metadata here, the SE changes because an unpooled rather than a pooled variance is calculated. That unpooled variance is calculated over the $(un)infected-baseline$ pairwise differences (where the differences are paired within the respective backgrounds).
+
+## what does the intercept include
+
+-   the intercept includes first levels of both the first and the second terms.
+-   removing the intercept still presents the estimates for all levels of the second term relative to its first level.
+
+## what is the meaning of interactions
+
+-   an interaction represents the linear combination of two preexisting terms. For example, here the results of time:treatment interaction and treatment2 would be identical (but the intercepts of the two models would be different).
+
+##
+```{r deg}
+deg <- DESeqDataSetFromMatrix(countData = gene$abundance |> round(),
+                                            colData = metadata,
+                                            design = ~ background + treatment
+                                            )
+
+deg <- DESeq(deg)
+# Generate results object
+deg <- results(deg)
+deg <- as.data.frame(deg)
+  
+metadata$abundance <- gene$abundance[1,]
+
+lm(abundance ~ background + time_treat, data = metadata) |> summary()
+lm(abundance ~ time_treat, data = metadata) |> summary()
+lm(abundance ~ background * time, data = metadata) |> summary()
+
+# plot emms of the following model to undertand what needs to be compared
+lm(abundance ~ 0 + back_treat*time, data = metadata |> filter(background != "MAVS")) |> summary()
+
+```
+
+```{r gsea}
+library(fgsea)
+library(dorothea)
+library(progeny)
+
+hallmarks <- fgsea::gmtPathways("./data/pathway datasets/hallmark.genesets.v6.1.symbols.gmt") #50 gene sets
+kegg <- fgsea::gmtPathways("./data/pathway datasets/kegg.genesets.v6.1.symbols.gmt") #186
+go <- fgsea::gmtPathways("./data/pathway datasets/GOTerms.BP.v6.1.symbols.gmt") #4436
+reactome <- fgsea::gmtPathways("./data/pathway datasets/reactome.genesets.v6.1.symbols.gmt") #674
+
+gene_sets <- c(hallmarks, kegg, go, reactome)
+
+
+mtb <- read_csv("~/mtb/results/DESeq/logFCs.csv")
+
+gene_names<- mtb |> drop_na() |> pluck("...1")
+
+for(i in 2:73){ 
+  names(mtb[[i]]) <- gene_names
+
+}
+
+fold_changes <- vector("list", length = 72)
+
+for(i in 2:73){
+  fold_changes[[i]] <- mtb[[i]] |> sort()
+}
+
+pathways <- vector("list", length = 72)
+
+for(i in 2:28){
+  pathways[[i]] <- fgsea(pathways = gene_sets,
+                         stats = fold_changes[[i]],
+                         minSize=5,
+                         maxSize=5000,
+                         nproc = 2)
+}
+
+pathways[[1]] |> View()
 ```
 
 Use the Bioconductor package ReportingTools for displaying the results [@Huntley2013]. Excerpt from @Love2015 about ReportingTools:
@@ -38,7 +185,6 @@ Use the Bioconductor package ReportingTools for displaying the results [@Huntley
 > ReportingTools will automatically generate dynamic HTML documents, including links to external databases using gene identifiers and boxplots summarizing the normalized counts across groups.
 
 ```{r}
-library(BiocManager)
 # BiocManager::install("ReportingTools")
 library("ReportingTools")
 htmlRep <- HTMLReport(shortName="report", title="My report",
