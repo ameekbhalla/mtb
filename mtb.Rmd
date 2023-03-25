@@ -138,6 +138,18 @@ lm(abundance ~ background * time, data = metadata) |> summary()
 lm(abundance ~ 0 + back_treat*time, data = metadata |> filter(background != "MAVS")) |> summary()
 
 ```
+Quote from fgsea reference manual describing the columns of the output.
+https://bioconductor.org/packages/release/bioc/manuals/fgsea/man/fgsea.pdf
+
+Each row corresponds to a tested pathway. The columns are the following:
+• pathway – name of the pathway as in ‘names(pathway)‘;
+• pval – an enrichment p-value;
+• padj – a BH-adjusted p-value;
+• ES – enrichment score, same as in Broad GSEA implementation;
+• NES – enrichment score normalized to mean enrichment of random samples of the same size;
+• nMoreExtreme‘ – a number of times a random gene set had a more extreme enrichment score value;
+• size – size of the pathway after removing genes not present in ‘names(stats)‘.
+• leadingEdge – vector with indexes of leading edge genes that drive the enrichment, see http://software.broadinstitute.org/gsea/doc/GSEAUserGuideTEXT.htm#_Running_a_Leading
 
 ```{r gsea}
 library(fgsea)
