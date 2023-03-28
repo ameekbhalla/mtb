@@ -189,7 +189,18 @@ for(i in 2:28){
                          nproc = 2)
 }
 
-pathways[[1]] |> View()
+names(pathways) <-  mtb |> dplyr::select(-1) |> names() |> str_replace_all("___", "_") |> str_replace_all(" -- vs -- ", "—")
+
+singletons <- names(pathways) |> str_split_fixed("—", n =2) |> as.data.frame() |> pluck(1) |> unique()
+
+keep <- map_dfr(.x = 1:8, ~expand.grid(singletons[.x], singletons[(.x+1):9])) |> transmute(Var3 = paste0(Var1, "—", Var2)) |> pluck(1)
+
+pathways2 <- pathways[keep]
+
+map_dfr(.x = pathways2 |> discard(is.null), ~dplyr::filter(.x, pval <= 0.05), .id = "comparison") |> 
+write.xlsx(file = "pathways1.xlsx")
+
+write.xlsx(pathways2, file = "pathways2.xlsx")
 ```
 
 Use the Bioconductor package ReportingTools for displaying the results [@Huntley2013]. Excerpt from @Love2015 about ReportingTools:
