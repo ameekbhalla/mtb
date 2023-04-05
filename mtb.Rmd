@@ -116,9 +116,20 @@ metadata <- metadata |>
 
 -   an interaction represents the linear combination of two preexisting terms. For example, here the results of time:treatment interaction and treatment2 would be identical (but the intercepts of the two models would be different).
 
-##
+
+```{r testing}
+# metadata$abundance <- gene$abundance[1,]
+# 
+# lm(abundance ~ background + time_treat, data = metadata) |> summary()
+# lm(abundance ~ time_treat, data = metadata) |> summary()
+# lm(abundance ~ background * time, data = metadata) |> summary()
+# 
+# # plot emms of the following model to undertand what needs to be compared
+# lm(abundance ~ 0 + background + time_treat + background:time_treat, data = metadata |> filter(background != "MAVS")) |> summary()
+```
+
 ```{r deg}
-deg1 <- DESeqDataSetFromMatrix(
+deg <- DESeqDataSetFromMatrix(
   countData = gene$abundance |> as.data.frame() |> dplyr::select(-contains("NLRP3")) |> round(),
   colData = metadata |> filter(background != "NLRP3"),
   design = ~ background + time_treat + background:time_treat
@@ -129,23 +140,38 @@ model.matrix(object = ~ background + time_treat + background:time_treat,
 
 deg <- DESeq(deg)
 # Generate results object
-  
-metadata$abundance <- gene$abundance[1,]
 
-lm(abundance ~ background + time_treat, data = metadata) |> summary()
-lm(abundance ~ time_treat, data = metadata) |> summary()
-lm(abundance ~ background * time, data = metadata) |> summary()
 resultsNames(deg)
+
 # by default results outputs the last named contrast above
 
-# plot emms of the following model to undertand what needs to be compared
-lm(abundance ~ 0 + back_treat*time, data = metadata |> filter(background != "MAVS")) |> summary()
+Intercept <- results(name = "Intercept", object = deg) |> 
+  as.data.frame() |> rownames_to_column()
+
+t0_background <- results(name = "background_MAVS_vs_wt", object = deg) |> 
+  as.data.frame() |> rownames_to_column()
+
+t24_bystander <- results(name = "time_treat_uninf_vs_baseline", object = deg) |> 
+  as.data.frame() |> rownames_to_column()
+
+t24_infected <- results(name = "time_treat_inf_vs_baseline", object = deg) |> 
+  as.data.frame() |> rownames_to_column()
+
 interaction_bystander <- results(name = "backgroundMAVS.time_treatuninf", object = deg) |>
   as.data.frame() |> rownames_to_column()
 
 interaction_infected <- results(name = "backgroundMAVS.time_treatinf", object = deg) |> 
-  s.data.frame() |> rownames_to_column()
+  as.data.frame() |> rownames_to_column()
+
+lfcs <- map_dfc(.x = resultsNames(deg), ~DESeq2::results(name = .x, object = deg) |> 
+  as.data.frame() |> dplyr::select(log2FoldChange))
+
+names(lfcs) <- resultsNames(deg)
+
+mtb |> View()
 ```
+
+# GSEA
 Quote from fgsea reference manual describing the columns of the output.
 https://bioconductor.org/packages/release/bioc/manuals/fgsea/man/fgsea.pdf
 
