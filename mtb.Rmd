@@ -8,7 +8,7 @@ bibliography: references.bib
 ---
 
 ```{r setup, include = FALSE}
-pacman::p_load(tidyverse, tximport, biomaRt, DESeq2)
+pacman::p_load(tidyverse, tximport, biomaRt, DESeq2, WGCNA)
 ```
 
 ```{r cliff}
@@ -28,7 +28,6 @@ rownames(metadata) = metadata$names
 files = metadata$files
 names(files) = metadata$names
 tx = tximport::tximport(files, type = "kallisto", txOut = TRUE)
-
 
 # Build reference mapping -------------------------------------------------
 mart = useEnsembl(biomart = "ensembl",
@@ -82,8 +81,8 @@ metadata <- tibble::tribble(
 
 # creating treatment2 from a linear combination of time and treatment
 metadata <- metadata |>
-mutate(time_treat = case_when(time == "T24" & treatment == "uninf" ~ "uninf",
-                              time == "T24" & treatment ==   "inf" ~   "inf",
+mutate(time_treat = case_when(time == "T24" & treatment == "uninf" ~ "bystander",
+                              time == "T24" & treatment ==   "inf" ~  "infected",
                               time ==  "T0" & treatment == "uninf" ~ "baseline"),
        back_treat =  paste0(background, "_", treatment)
        )
@@ -93,7 +92,8 @@ metadata <- metadata |>
   mutate(background = background |> as.factor() |> relevel(ref = "wt"),
          time = time |> as.factor() |> relevel(ref = "T0"),
          treatment = treatment |> as.factor() |> relevel(ref = "uninf"),
-         time_treat = time_treat |> as.factor() |> relevel(ref = "baseline"),
+         time_treat = time_treat |> as.factor(),
+         time_treat = fct_relevel(time_treat, c("baseline", "bystander", "infected")),
          back_treat = back_treat |> as.factor() |> relevel(ref = "wt_uninf")
          ) |> 
   dplyr::select(background, time, treatment, time_treat, back_treat, replicate)
@@ -117,15 +117,16 @@ metadata <- metadata |>
 -   an interaction represents the linear combination of two preexisting terms. For example, here the results of time:treatment interaction and treatment2 would be identical (but the intercepts of the two models would be different).
 
 
-```{r testing}
-# metadata$abundance <- gene$abundance[1,]
-# 
-# lm(abundance ~ background + time_treat, data = metadata) |> summary()
-# lm(abundance ~ time_treat, data = metadata) |> summary()
-# lm(abundance ~ background * time, data = metadata) |> summary()
-# 
-# # plot emms of the following model to undertand what needs to be compared
-# lm(abundance ~ 0 + background + time_treat + background:time_treat, data = metadata |> filter(background != "MAVS")) |> summary()
+```{r testing, eval=FALSE, include=FALSE}
+metadata$abundance <- gene$abundance[1,]
+
+# plot emms of the following model to undertand what needs to be compared
+m <- lm(abundance ~ background*time_treat, data = metadata #|> filter(background != "NLRP3")
+         )
+ 
+m |> summary()
+ 
+emmip(m, background ~ time_treat, CIs = TRUE) + ylab("expression") + theme(axis.title.x = element_blank())
 ```
 
 ```{r deg}
