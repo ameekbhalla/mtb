@@ -8,7 +8,7 @@ bibliography: references.bib
 ---
 
 ```{r setup, include = FALSE}
-pacman::p_load(tidyverse, tximport, biomaRt, DESeq2, WGCNA)
+pacman::p_load(tidyverse, tximport, biomaRt, DESeq2, WGCNA, cowplot, patchwork)
 ```
 
 ```{r cliff}
@@ -120,13 +120,34 @@ metadata <- metadata |>
 ```{r testing, eval=FALSE, include=FALSE}
 metadata$abundance <- gene$abundance[1,]
 
-# plot emms of the following model to undertand what needs to be compared
-m <- lm(abundance ~ background*time_treat, data = metadata #|> filter(background != "NLRP3")
-         )
- 
-m |> summary()
- 
-emmip(m, background ~ time_treat, CIs = TRUE) + ylab("expression") + theme(axis.title.x = element_blank())
+without_inter_m <- lm(abundance ~ background + time_treat, 
+                      data = metadata |> filter(background != "NLRP3")
+                      )
+
+with_inter_m <- lm(abundance ~ background * time_treat, 
+                      data = metadata |> filter(background != "NLRP3")
+                      )
+
+emmeans(without_inter_m, pairwise ~ time_treat | background, infer = TRUE)
+emmeans(with_inter_m, pairwise ~ time_treat | background, infer = TRUE)
+
+without_inter <- emmip(without_inter_m, background ~ time_treat, CIs = TRUE) + 
+  labs(title = "Without Interaction", y = "Gene '1' abundance") +
+  ggrepel::geom_text_repel(data = function(x) subset(x,time_treat == "infected"),
+                           aes(label = background)) +
+  theme_half_open() + 
+  theme(axis.title.x = element_blank(),
+        legend.position = "none")
+
+with_inter <- emmip(with_inter_m, background ~ time_treat, CIs = TRUE) + 
+  labs(title = "With Interaction", y = "Gene '1' abundance") +
+  ggrepel::geom_text_repel(data = function(x) subset(x,time_treat == "infected"),
+                           aes(label = background)) +
+  theme_half_open() + 
+  theme(axis.title.x = element_blank(),
+        legend.position = "none")
+
+without_inter + with_inter
 ```
 
 ```{r deg}
