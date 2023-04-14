@@ -1,0 +1,38 @@
+---
+title: "Untitled"
+output: html_document
+date: "2023-04-06"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+# Dispersion
+dds <- DESeqDataSetFromTximport(txi = gene, colData = metadata, design = ~ 1)
+dds <- DESeq(dds)
+dispersions <- setNames(dispersions(dds), rownames(gene$counts))
+```
+
+"Note the sizeFactors vector needs to be centred around 1, since it used directly as an offset of form log(sizeFactors) in the GLMM model."
+```{r}
+sizeFactors <- estimateSizeFactorsForMatrix(gene$counts)
+```
+
+```{r glmm}
+results <- glmmSeq(~ background * time_treat,
+                   # method = "glmmTMB",
+                   countdata = gene$counts,
+                   metadata = metadata |> rownames_to_column(),
+                   dispersion = dispersions,
+                   sizeFactors = sizeFactors,
+                   progress = TRUE)
+```
+
+```{r gaussian}
+logtpm <- log2(gene$counts + 1)
+lmmres <- lmmSeq(~ background * time_treat,
+                   maindata = logtpm,
+                   metadata = metadata,
+                   progress = TRUE)
+```
+
