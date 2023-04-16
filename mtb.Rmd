@@ -150,14 +150,17 @@ with_inter <- emmip(with_inter_m, background ~ time_treat, CIs = TRUE) +
 without_inter + with_inter
 ```
 
-```{r deg}
+There is no correlation between the replicates with the same number across different genotypes. In other words: the replicates are nested within genotypes, not across them 
+Rank genes on the basis of their enrichment scores.
+
+```{r deg_baseline_bystander}
 deg <- DESeqDataSetFromMatrix(
-  countData = gene$abundance |> as.data.frame() |> dplyr::select(-contains("NLRP3")) |> round(),
-  colData = metadata |> filter(background != "NLRP3"),
-  design = ~ background + time_treat + background:time_treat
+  countData = gene$abundance |> as.data.frame() |> dplyr::select(-contains(c("NLRP3", "T24_inf"))) |> round(),
+  colData = metadata |> filter(background != "NLRP3", time_treat != "infected"),
+  design = ~ background * time_treat
   )
 
-model.matrix(object = ~ background + time_treat + background:time_treat, 
+model.matrix(object = ~ background * time_treat, 
              data = metadata |> filter(background != "NLRP3") |> droplevels())
 
 deg <- DESeq(deg)
