@@ -151,12 +151,26 @@ without_inter + with_inter
 ```
 
 There is no correlation between the replicates with the same number across different genotypes. In other words: the replicates are nested within genotypes, not across them 
+https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#model-specification
+
 Rank genes on the basis of their enrichment scores.
 
 ```{r deg_baseline_bystander}
 deg <- DESeqDataSetFromMatrix(
   countData = gene$abundance |> as.data.frame() |> dplyr::select(-contains(c("NLRP3", "T24_inf"))) |> round(),
   colData = metadata |> filter(background != "NLRP3", time_treat != "infected"),
+  design = ~ background * time_treat
+  )
+
+deg <- DESeqDataSetFromMatrix(
+  countData = gene$abundance |> as.data.frame() |> dplyr::select(-contains(c("NLRP3", "T24_inf"))) |> round(),
+  colData = metadata |> filter(background != "NLRP3", time_treat != "bystander"),
+  design = ~ background * time_treat
+  )
+
+deg <- DESeqDataSetFromMatrix(
+  countData = gene$abundance |> as.data.frame() |> dplyr::select(-contains(c("NLRP3", "T24_inf"))) |> round(),
+  colData = metadata |> filter(background != "NLRP3", time_treat != "uninfected"),
   design = ~ background * time_treat
   )
 
