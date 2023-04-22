@@ -44,6 +44,9 @@ t2g$target_id = rownames(tx$abundance)
 t2g = t2g[!is.na(t2g$gene_id),]
 
 gene = summarizeToGene(tx,tx2gene = t2g)
+# provides identical result to above 
+# gene <- tximport(files, type = "kallisto", tx2gene = t2g)
+
 gene_lengthScaledTPM = summarizeToGene(tx,tx2gene = t2g, countsFromAbundance = "lengthScaledTPM")
 ```
 
@@ -150,81 +153,86 @@ with_inter <- emmip(with_inter_m, background ~ time_treat, CIs = TRUE) +
 without_inter + with_inter
 ```
 
-There is no correlation between the replicates with the same number across different genotypes. In other words: the replicates are nested within genotypes, not across them 
-https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#model-specification
+1.  There is no correlation between the samples with the same replicate number across different genotypes. In other words: the replicates are nested within genotypes, not across them
+2.  How to specify nesting <https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#model-specification>
+3.  Does comparing models with differing terms provide their independent effect? If so, get only the independent effect of treatment or independent effect of genotype:treatment interaction, ignore the independent effect of genotype.
+4. Rank genes on the basis of their enrichment scores.
 
-Rank genes on the basis of their enrichment scores.
-
-```{r deg_baseline_bystander}
-deg <- DESeqDataSetFromMatrix(
+```{r deg}
+ba_by <- DESeqDataSetFromMatrix(
   countData = gene$abundance |> as.data.frame() |> dplyr::select(-contains(c("NLRP3", "T24_inf"))) |> round(),
   colData = metadata |> filter(background != "NLRP3", time_treat != "infected"),
   design = ~ background * time_treat
-  )
+  ) |> DESeq()
 
-deg <- DESeqDataSetFromMatrix(
-  countData = gene$abundance |> as.data.frame() |> dplyr::select(-contains(c("NLRP3", "T24_inf"))) |> round(),
+ba_inf <- DESeqDataSetFromMatrix(
+  countData = gene$abundance |> as.data.frame() |> dplyr::select(-contains(c("NLRP3", "T24_uninf"))) |> round(),
   colData = metadata |> filter(background != "NLRP3", time_treat != "bystander"),
   design = ~ background * time_treat
-  )
+  ) |> DESeq()
 
-deg <- DESeqDataSetFromMatrix(
-  countData = gene$abundance |> as.data.frame() |> dplyr::select(-contains(c("NLRP3", "T24_inf"))) |> round(),
-  colData = metadata |> filter(background != "NLRP3", time_treat != "uninfected"),
+by_inf <- DESeqDataSetFromMatrix(
+  countData = gene$abundance |> as.data.frame() |> dplyr::select(-contains(c("NLRP3", "T0"))) |> round(),
+  colData = metadata |> filter(background != "NLRP3", time_treat != "baseline"),
   design = ~ background * time_treat
-  )
+  ) |> DESeq()
 
-model.matrix(object = ~ background * time_treat, 
-             data = metadata |> filter(background != "NLRP3") |> droplevels())
-
-deg <- DESeq(deg)
-# Generate results object
-
-resultsNames(deg)
+# # Generate results object
+# resultsNames(ba_by)
 
 # by default results outputs the last named contrast above
 
-Intercept <- results(name = "Intercept", object = deg) |> 
+#####
+ba_by_intercept <- results(name = "Intercept", object = ba_by) |> 
   as.data.frame() |> rownames_to_column()
 
-t0_background <- results(name = "background_MAVS_vs_wt", object = deg) |> 
+ba_by_background <- results(name = "background_MAVS_vs_wt", object = ba_by) |> 
   as.data.frame() |> rownames_to_column()
 
-t24_bystander <- results(name = "time_treat_uninf_vs_baseline", object = deg) |> 
+ba_by_treat <- results(name = "time_treat_bystander_vs_baseline", object = ba_by) |> 
   as.data.frame() |> rownames_to_column()
 
-t24_infected <- results(name = "time_treat_inf_vs_baseline", object = deg) |> 
+ba_by_interaction <- results(name = "backgroundMAVS.time_treatbystander", object = ba_by) |>
   as.data.frame() |> rownames_to_column()
 
-interaction_bystander <- results(name = "backgroundMAVS.time_treatuninf", object = deg) |>
+ba_by_intercept <- results(name = "Intercept", object = ba_by) |> 
   as.data.frame() |> rownames_to_column()
 
-interaction_infected <- results(name = "backgroundMAVS.time_treatinf", object = deg) |> 
+#####
+ba_inf_intercept <- results(name = "Intercept", object = ba_inf) |> 
   as.data.frame() |> rownames_to_column()
 
-lfcs <- map_dfc(.x = resultsNames(deg), ~DESeq2::results(name = .x, object = deg) |> 
-  as.data.frame() |> dplyr::select(log2FoldChange))
+ba_inf_background <- results(name = "background_MAVS_vs_wt", object = ba_inf) |> 
+  as.data.frame() |> rownames_to_column()
 
-names(lfcs) <- resultsNames(deg)
+ba_inf_treat <- results(name = "time_treat_infected_vs_baseline", object = ba_inf) |> 
+  as.data.frame() |> rownames_to_column()
 
-mtb |> View()
+ba_inf_interaction <- results(name = "backgroundMAVS.time_treatinfected", object = ba_inf) |>
+  as.data.frame() |> rownames_to_column()
+
+#####
+by_inf_intercept <- results(name = "Intercept", object = by_inf) |> 
+  as.data.frame() |> rownames_to_column()
+
+by_inf_background <- results(name = "background_MAVS_vs_wt", object = by_inf) |> 
+  as.data.frame() |> rownames_to_column()
+
+by_inf_treat <- results(name = "time_treat_infected_vs_bystander", object = by_inf) |> 
+  as.data.frame() |> rownames_to_column()
+
+by_inf_interaction <- results(name = "backgroundMAVS.time_treatinfected", object = by_inf) |>
+  as.data.frame() |> rownames_to_column()
+
 ```
 
 # GSEA
-Quote from fgsea reference manual describing the columns of the output.
-https://bioconductor.org/packages/release/bioc/manuals/fgsea/man/fgsea.pdf
 
-Each row corresponds to a tested pathway. The columns are the following:
-• pathway – name of the pathway as in ‘names(pathway)‘;
-• pval – an enrichment p-value;
-• padj – a BH-adjusted p-value;
-• ES – enrichment score, same as in Broad GSEA implementation;
-• NES – enrichment score normalized to mean enrichment of random samples of the same size;
-• nMoreExtreme‘ – a number of times a random gene set had a more extreme enrichment score value;
-• size – size of the pathway after removing genes not present in ‘names(stats)‘.
-• leadingEdge – vector with indexes of leading edge genes that drive the enrichment, see http://software.broadinstitute.org/gsea/doc/GSEAUserGuideTEXT.htm#_Running_a_Leading
+Quote from fgsea reference manual describing the columns of the output. <https://bioconductor.org/packages/release/bioc/manuals/fgsea/man/fgsea.pdf>
 
-```{r gsea}
+Each row corresponds to a tested pathway. The columns are the following: • pathway -- name of the pathway as in 'names(pathway)'; • pval -- an enrichment p-value; • padj -- a BH-adjusted p-value; • ES -- enrichment score, same as in Broad GSEA implementation; • NES -- enrichment score normalized to mean enrichment of random samples of the same size; • nMoreExtreme' -- a number of times a random gene set had a more extreme enrichment score value; • size -- size of the pathway after removing genes not present in 'names(stats)'. • leadingEdge -- vector with indexes of leading edge genes that drive the enrichment, see <http://software.broadinstitute.org/gsea/doc/GSEAUserGuideTEXT.htm#_Running_a_Leading>
+
+```{r gene_sets}
 library(fgsea)
 library(dorothea)
 library(progeny)
@@ -235,11 +243,12 @@ go <- fgsea::gmtPathways("./data/pathway datasets/GOTerms.BP.v6.1.symbols.gmt") 
 reactome <- fgsea::gmtPathways("./data/pathway datasets/reactome.genesets.v6.1.symbols.gmt") #674
 
 gene_sets <- c(hallmarks, kegg, go, reactome)
+```
 
-
+```{r cliff_gsea}
 mtb <- read_csv("~/mtb/results/DESeq/logFCs.csv")
 
-gene_names<- mtb |> drop_na() |> pluck("...1")
+gene_names <- mtb |> drop_na() |> pluck("...1")
 
 for(i in 2:73){ 
   names(mtb[[i]]) <- gene_names
