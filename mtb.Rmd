@@ -117,8 +117,11 @@ metadata <- metadata |>
 
 ## what is the meaning of interactions
 
--   an interaction represents the linear combination of two preexisting terms. For example, here the results of time:treatment interaction and treatment2 would be identical (but the intercepts of the two models would be different).
+-   An interaction represents the linear combination of two preexisting terms. In a model without interaction, all the lines have the same fixed value; but in a model with interaction they are free to vary.
 
+## What information does dropping a term from a multiple linear regression model provide?
+
+- By dropping a term from the model and comparing the fit statistics (e.g., R-squared, adjusted R-squared, residual standard error) of the reduced model to the original model, we can determine whether the dropped term was contributing significantly to the predictive power of the model.
 
 ```{r testing, eval=FALSE, include=FALSE}
 metadata$abundance <- gene$abundance[1,]
