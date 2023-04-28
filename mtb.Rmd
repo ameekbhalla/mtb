@@ -177,7 +177,7 @@ ba_inf <- DESeqDataSetFromMatrix(
 by_inf <- DESeqDataSetFromMatrix(
   countData = gene$abundance |> as.data.frame() |> dplyr::select(-contains(c("NLRP3", "T0"))) |> round(),
   colData = metadata |> filter(background != "NLRP3", time_treat != "baseline"),
-  design = ~ background * time_treat
+  design = ~ replicate + background * time_treat
   ) |> DESeq()
 
 # # Generate results object
