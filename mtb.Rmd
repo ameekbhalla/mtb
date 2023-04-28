@@ -198,9 +198,6 @@ ba_by_treat <- results(name = "time_treat_bystander_vs_baseline", object = ba_by
 ba_by_interaction <- results(name = "backgroundMAVS.time_treatbystander", object = ba_by) |>
   as.data.frame() |> rownames_to_column()
 
-ba_by_intercept <- results(name = "Intercept", object = ba_by) |> 
-  as.data.frame() |> rownames_to_column()
-
 #####
 ba_inf_intercept <- results(name = "Intercept", object = ba_inf) |> 
   as.data.frame() |> rownames_to_column()
