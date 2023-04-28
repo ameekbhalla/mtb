@@ -123,6 +123,18 @@ metadata <- metadata |>
 
 - By dropping a term from the model and comparing the fit statistics (e.g., R-squared, adjusted R-squared, residual standard error) of the reduced model to the original model, we can determine whether the dropped term was contributing significantly to the predictive power of the model.
 
+## Consider a multiple regression model with two two-level categorical predictors and an interaction term (the third term in it is the interaction term). What is the relationship between the independent effect, the incremental effect, and the estimated marginal means of the second term?
+
+The relationship between the independent effect, the incremental effect, and the estimated marginal means of the second term depends on the values of the other terms in the model. The independent effect of the second term is the change in the expected value of the dependent variable when the second term changes by one unit, holding the other terms constant. The incremental effect of the second term is the change in the expected value of the dependent variable when the second term changes by one unit, regardless of the values of the other terms. The estimated marginal means of the second term are the predicted values of the dependent variable for each level of the second term, averaged over all other terms in the model [1](https://stats.stackexchange.com/questions/577537/interpreting-main-effect-with-significant-interaction-term-in-continuous-by-cont).
+
+In a model with two two-level categorical predictors and an interaction term, such as:
+
+$$y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \beta_3 x_1 x_2 + \epsilon$$
+
+where $x_1$ and $x_2$ are dummy variables that take values 0 or 1, the independent effect of $x_2$ is $\beta_2$ when $x_1 = 0$, and $\beta_2 + \beta_3$ when $x_1 = 1$. The incremental effect of $x_2$ is $\beta_2 + \frac{\beta_3}{2}$, which is a weighted average of its independent effects at different levels of $x_1$. The estimated marginal means of $x_2$ are $\beta_0 + \frac{\beta_1}{2}$ when $x_2 = 0$, and $\beta_0 + \frac{\beta_1}{2} + \beta_2 + \frac{\beta_3}{2}$ when $x_2 = 1$. These are also weighted averages of its predicted values at different levels of $x_1$ [2](https://cran.r-project.org/web/packages/sjPlot/vignettes/plot_marginal_effects.html).
+
+Therefore, to interpret the effect of $x_2$, you need to consider both its main effect and its interaction effect with $x_1$. You can also plot the marginal effects or use confidence intervals to assess the significance and magnitude of the effect [3](http://www.sthda.com/english/articles/40-regression-analysis/164-interaction-effect-in-multiple-regression-essentials/).
+
 ```{r testing, eval=FALSE, include=FALSE}
 metadata$abundance <- gene$abundance[1,]
 
