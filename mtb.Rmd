@@ -135,6 +135,8 @@ where $x_1$ and $x_2$ are dummy variables that take values 0 or 1, the independe
 
 Therefore, to interpret the effect of $x_2$, you need to consider both its main effect and its interaction effect with $x_1$. You can also plot the marginal effects or use confidence intervals to assess the significance and magnitude of the effect [3](http://www.sthda.com/english/articles/40-regression-analysis/164-interaction-effect-in-multiple-regression-essentials/).
 
+The estimated marginal means of $x_1$ are $\beta_0 + \frac{\beta_2}{2}$ when $x_1 = 0$, and $\beta_0 + \frac{\beta_2}{2} + \beta_1 + \frac{\beta_3}{2}$ when $x_1 = 1$. These are also weighted averages of its predicted values at different levels of $x_2$.
+
 ```{r testing, eval=FALSE, include=FALSE}
 metadata$abundance <- gene$abundance[1,]
 
