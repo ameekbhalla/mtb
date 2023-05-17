@@ -137,29 +137,26 @@ Therefore, to interpret the effect of $x_2$, you need to consider both its main 
 
 The estimated marginal means of $x_1$ are $\beta_0 + \frac{\beta_2}{2}$ when $x_1 = 0$, and $\beta_0 + \frac{\beta_2}{2} + \beta_1 + \frac{\beta_3}{2}$ when $x_1 = 1$. These are also weighted averages of its predicted values at different levels of $x_2$.
 
-```{r testing, eval=FALSE, include=FALSE}
-metadata$abundance <- gene$abundance[1,]
+## when using deseq2 with multiple terms, how can you calculate the se for a contrast?
 
-without_inter_m <- lm(abundance ~ background + time_treat, 
-                      data = metadata |> filter(background != "NLRP3")
-                      )
+The standard error for a contrast will be calculated by DESeq2 using the Wald test. The Wald test compares the estimated coefficient for the contrast to zero, divided by its standard error. The standard error for the contrast is computed from the variance-covariance matrix of the coefficients, which takes into account the correlation between them. 
+
+```{r testing, eval=FALSE, include=FALSE}
+metadata2  <- metadata |> filter(background != "NLRP3", time_treat != "infected")
+
+metadata2$abundance <-  ba_by |>  counts(normalized=TRUE) %>% `[`(3, ) |> log2()
 
 with_inter_m <- lm(abundance ~ background * time_treat, 
-                      data = metadata |> filter(background != "NLRP3")
+                      data = metadata2 |> filter(background != "NLRP3")
                       )
 
-emmeans(without_inter_m, pairwise ~ time_treat | background, infer = TRUE)
-emmeans(with_inter_m, pairwise ~ time_treat | background, infer = TRUE)
+without_inter_m <- lm(abundance ~ background + time_treat, 
+                      data = metadata2 |> filter(background != "NLRP3")
+                      )
 
-without_inter <- emmip(without_inter_m, background ~ time_treat, CIs = TRUE) + 
-  labs(title = "Without Interaction", y = "Gene '1' abundance") +
-  ggrepel::geom_text_repel(data = function(x) subset(x,time_treat == "infected"),
-                           aes(label = background)) +
-  theme_half_open() + 
-  theme(axis.title.x = element_blank(),
-        legend.position = "none")
+emmeans::emmeans(with_inter_m, background ~ time_treat | background, infer = TRUE)
 
-with_inter <- emmip(with_inter_m, background ~ time_treat, CIs = TRUE) + 
+with_inter <- emmeans::emmip(with_inter_m, background ~ time_treat, CIs = TRUE) + 
   labs(title = "With Interaction", y = "Gene '1' abundance") +
   ggrepel::geom_text_repel(data = function(x) subset(x,time_treat == "infected"),
                            aes(label = background)) +
@@ -167,7 +164,15 @@ with_inter <- emmip(with_inter_m, background ~ time_treat, CIs = TRUE) +
   theme(axis.title.x = element_blank(),
         legend.position = "none")
 
-without_inter + with_inter
+without_inter <- emmeans::emmip(without_inter_m, background ~ time_treat, CIs = F) + 
+  labs(title = "Without Interaction", y = "Gene '1' abundance") +
+  ggrepel::geom_text_repel(data = function(x) subset(x,time_treat == "infected"),
+                           aes(label = background)) +
+  theme_half_open() + 
+  theme(axis.title.x = element_blank(),
+        legend.position = "none")
+
+with_inter + without_inter
 ```
 
 1.  There is no correlation between the samples with the same replicate number across different genotypes. In other words: the replicates are nested within genotypes, not across them
