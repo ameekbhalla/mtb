@@ -244,25 +244,19 @@ by_inf_interaction <- results(name = "backgroundMAVS.time_treatinfected", object
   as.data.frame() |> rownames_to_column()
 ```
 
-```{r emm}
-head(coef(ba_by)) |> as.data.frame() |> rownames_to_column() |> dplyr::slice(3) |> 
-  # rename("Intercept" = "WT_baseline", 
-  #        "background_MAVS_vs_wt" = "MAVS_baseline", 
-  #        "time_treat_bystander_vs_baseline" = "WT_bystander", 
-  #        "backgroundMAVS.time_treatbystander" = "MAVS_bystander") |> 
+```{r emm_ba_by}
+coef(ba_by, SE = F) |> as.data.frame() |> rownames_to_column() |> dplyr::slice(3) |> 
   transmute(
     Gene = rowname,
     
-    WT_baseline = Intercept + (time_treat_bystander_vs_baseline)/2,
+    WT_baseline = Intercept, #+ (time_treat_bystander_vs_baseline)/2,
     
-    MAVS_baseline = Intercept + (background_MAVS_vs_wt)/2,
+    MAVS_baseline = Intercept + background_MAVS_vs_wt,
     
-    WT_bystander = Intercept  + background_MAVS_vs_wt + (time_treat_bystander_vs_baseline)/2 +
-      (backgroundMAVS.time_treatbystander)/2,
+    WT_bystander = Intercept  + time_treat_bystander_vs_baseline,
     
-    MAVS_bystander = Intercept + (background_MAVS_vs_wt)/2 + time_treat_bystander_vs_baseline +
-      (backgroundMAVS.time_treatbystander)/2
-    
+    MAVS_bystander = Intercept + background_MAVS_vs_wt + time_treat_bystander_vs_baseline +
+    backgroundMAVS.time_treatbystander
     )|>
   pivot_longer(!Gene, names_to = "group", values_to = "emm") |> 
   mutate(
@@ -272,23 +266,118 @@ head(coef(ba_by)) |> as.data.frame() |> rownames_to_column() |> dplyr::slice(3) 
   ggplot(aes(x = time_treat, y = emm, group = background, color = background)) + 
   geom_line() + 
   geom_point() +
-  ggrepel::geom_text_repel(data = function(x) subset(x, time_treat == "bystander"), aes(label = background)) +
+  ggrepel::geom_text_repel(data = function(x) subset(x, time_treat == "bystander"), 
+                           aes(label = background)) +
+  # ggrepel::geom_text_repel(aes(label = emm)) +
   theme_half_open() +
   theme(axis.title.x = element_blank(), legend.position = "none") +
   labs(y = "Gene '1' abundance")
+```
 
-head(coef(ba_by, SE = TRUE)) |> as.data.frame() |> rownames_to_column() |> dplyr::slice(3) |> 
+```{r emm_ba_inf}
+coef(ba_inf, SE = F) |> as.data.frame() |> rownames_to_column() |> dplyr::slice(3) |> 
+  transmute(
+    Gene = rowname,
+    
+    WT_baseline = Intercept, #+ (time_treat_bystander_vs_baseline)/2,
+    
+    MAVS_baseline = Intercept + background_MAVS_vs_wt,
+    
+    WT_infected = Intercept  + time_treat_infected_vs_baseline,
+    
+    MAVS_infected = Intercept + background_MAVS_vs_wt + time_treat_infected_vs_baseline  +
+      backgroundMAVS.time_treatinfected
+    )|>
+  pivot_longer(!Gene, names_to = "group", values_to = "emm") |> 
+  mutate(
+    background = str_split_fixed(string = group, pattern = "_", n = 2) |> as.data.frame() |> pluck("V1"),
+    time_treat = str_split_fixed(string = group, pattern = "_", n = 2) |> as.data.frame() |> pluck("V2")
+  ) |> 
+  ggplot(aes(x = time_treat, y = emm, group = background, color = background)) + 
+  geom_line() + 
+  geom_point() +
+  ggrepel::geom_text_repel(data = function(x) subset(x, time_treat == "infected"), 
+                           aes(label = background)) +
+  # ggrepel::geom_text_repel(aes(label = emm)) +
+  theme_half_open() +
+  theme(axis.title.x = element_blank(), legend.position = "none") +
+  labs(y = "Gene '1' abundance")
+```
+
+```{r emm_by_inf}
+coef(by_inf, SE = F) |> as.data.frame() |> rownames_to_column() |> dplyr::slice(3) |> 
   # rename("Intercept" = "WT_baseline", 
   #        "background_MAVS_vs_wt" = "MAVS_baseline", 
   #        "time_treat_bystander_vs_baseline" = "WT_bystander", 
   #        "backgroundMAVS.time_treatbystander" = "MAVS_bystander") |> 
   transmute(
     Gene = rowname,
-    WT_baseline = SE_Intercept,
-    MAVS_baseline = SE_Intercept  + SE_background_MAVS_vs_wt,
-    WT_bystander = SE_Intercept  + SE_time_treat_bystander_vs_baseline,
-    MAVS_bystander = SE_WT_bystander  + SE_backgroundMAVS.time_treatbystander)
+    
+    WT_bystander = Intercept/3 + replicate_2_vs_1/3 + replicate_3_vs_1/3,
+    
+    MAVS_bystander = WT_bystander + background_MAVS_vs_wt,
+    
+    WT_infected = WT_bystander + time_treat_infected_vs_bystander,
+    
+    MAVS_infected = WT_bystander + background_MAVS_vs_wt + time_treat_infected_vs_bystander  +
+      backgroundMAVS.time_treatinfected
+    )|>
+  pivot_longer(!Gene, names_to = "group", values_to = "emm") |> 
+  mutate(
+    background = str_split_fixed(string = group, pattern = "_", n = 2) |> as.data.frame() |> pluck("V1"),
+    time_treat = str_split_fixed(string = group, pattern = "_", n = 2) |> as.data.frame() |> pluck("V2")
+  ) |> 
+  ggplot(aes(x = time_treat, y = emm, group = background, color = background)) + 
+  geom_line() + 
+  geom_point() +
+  ggrepel::geom_text_repel(data = function(x) subset(x, time_treat == "infected"), 
+                           aes(label = background)) +
+  # ggrepel::geom_text_repel(aes(label = emm)) +
+  theme_half_open() +
+  theme(axis.title.x = element_blank(), legend.position = "none") +
+  labs(y = "Gene '1' abundance") -> gg_by_inf
+```
 
+```{r emm_ba_by_inf}
+coef(ba_by_inf, SE = F) |> as.data.frame() |> rownames_to_column() |> dplyr::filter(str_detect(rowname, "Ifna1$|Ifnb1$|Cxcl9$|Tigit")) |> 
+  # rename("Intercept" = "WT_baseline", 
+  #        "background_MAVS_vs_wt" = "MAVS_baseline", 
+  #        "time_treat_bystander_vs_baseline" = "WT_bystander", 
+  #        "backgroundMAVS.time_treatbystander" = "MAVS_bystander") |> 
+  transmute(
+    Gene = rowname,
+    
+    WT_baseline = Intercept,
+    
+    MAVS_baseline = Intercept + background_MAVS_vs_wt,
+    
+    WT_bystander = Intercept  + time_treat_bystander_vs_baseline,
+    
+    MAVS_bystander = Intercept + background_MAVS_vs_wt + time_treat_bystander_vs_baseline +
+    backgroundMAVS.time_treatbystander,
+    
+    WT_infected = Intercept + time_treat_infected_vs_baseline,
+    
+    MAVS_infected = Intercept + background_MAVS_vs_wt + time_treat_infected_vs_baseline +
+    backgroundMAVS.time_treatinfected
+    )|>
+  pivot_longer(!Gene, names_to = "group", values_to = "emm") |> 
+  mutate(
+    background = str_split_fixed(string = group, pattern = "_", n = 2) |> as.data.frame() |>
+      pluck("V1"),
+    time_treat = str_split_fixed(string = group, pattern = "_", n = 2) |> as.data.frame() |>
+      pluck("V2")
+  ) |> mutate(time_treat = time_treat |> as.factor() |> relevel(ref = "bystander")) |> 
+  ggplot(aes(x = time_treat, y = emm, group = background, color = background)) + 
+  geom_line(alpha = 0.5) + 
+  geom_point(size = 5) +
+  ggrepel::geom_text_repel(data = function(x) subset(x, time_treat == "infected"), 
+                           aes(label = background)) +
+  # ggrepel::geom_text_repel(aes(label = emm)) +
+  facet_wrap(~ Gene) +
+  theme_half_open() +
+  theme(axis.title.x = element_blank(), legend.position = "none") +
+  labs(y = "log2(Arbitrary units)")
 ```
 
 # GSEA
