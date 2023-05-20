@@ -181,6 +181,12 @@ with_inter + without_inter
 4. Rank genes on the basis of their enrichment scores.
 
 ```{r deg}
+ba_by_inf <- DESeqDataSetFromMatrix(
+  countData = gene$abundance |> as.data.frame() |> dplyr::select(-contains("NLRP3")) |> round(),
+  colData = metadata |> filter(background != "NLRP3"),
+  design = ~ background * time_treat
+  ) |> DESeq()
+
 ba_by <- DESeqDataSetFromMatrix(
   countData = gene$abundance |> as.data.frame() |> dplyr::select(-contains(c("NLRP3", "T24_inf"))) |> round(),
   colData = metadata |> filter(background != "NLRP3", time_treat != "infected"),
@@ -203,6 +209,45 @@ by_inf <- DESeqDataSetFromMatrix(
 # resultsNames(ba_by)
 
 # by default results outputs the last named contrast above
+
+#####
+ba_by_inf_intercept <- results(name = "Intercept", object = ba_by_inf) |>
+  as.data.frame() |> 
+  rownames_to_column() |> 
+  mutate(across(rowname, ~ na_if(.x, ""))) |> 
+  drop_na() |>  
+  dplyr::filter(padj < 0.05)
+
+ba_by_inf_background <- results(name = "background_MAVS_vs_wt", object = ba_by_inf) |> 
+  as.data.frame() |> 
+  rownames_to_column() |> 
+  mutate(across(rowname, ~ na_if(.x, ""))) |> 
+  drop_na() |>  
+  dplyr::filter(padj < 0.05)
+
+ba_by_inf_treat <- results(name = "time_treat_bystander_vs_baseline", object = ba_by_inf) |> 
+  as.data.frame() |> 
+  rownames_to_column() |> 
+  mutate(across(rowname, ~ na_if(.x, ""))) |> 
+  drop_na() |>  
+  dplyr::filter(padj < 0.05)
+
+ba_by_inf_interaction <- results(name = "backgroundMAVS.time_treatbystander", object = ba_by_inf) |>
+  as.data.frame() |> 
+  rownames_to_column() |> 
+  mutate(across(rowname, ~ na_if(.x, ""))) |> 
+  drop_na() |>  
+  dplyr::filter(padj < 0.05)
+
+ba_by_inf_background_exclusive <- anti_join(by = "rowname",
+                                            ba_by_inf_background,
+                                            ba_by_inf_interaction
+                                            )
+
+ba_by_inf_treat_exclusive <- anti_join(by = "rowname",
+                                       ba_by_inf_treat,
+                                       ba_by_inf_interaction
+                                       )
 
 #####
 ba_by_intercept <- results(name = "Intercept", object = ba_by) |> 
