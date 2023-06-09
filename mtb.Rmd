@@ -48,6 +48,8 @@ gene = summarizeToGene(tx,tx2gene = t2g)
 # gene <- tximport(files, type = "kallisto", tx2gene = t2g)
 
 gene_lengthScaledTPM = summarizeToGene(tx,tx2gene = t2g, countsFromAbundance = "lengthScaledTPM")
+
+rm(list = base::setdiff(ls(), c("gene", "metadata")))
 ```
 
 ```{r metadata}
